@@ -1,0 +1,9 @@
+dist/
+.env
+.env.*
+.claude/
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
