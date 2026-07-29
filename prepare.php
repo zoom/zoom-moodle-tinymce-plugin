@@ -83,6 +83,7 @@ $existing = $DB->get_field_sql($sql, [
 
 if ($existing) {
     $cmid = (int)$existing;
+    set_coursemodule_visible($cmid, 1, 0);
 } else {
     $module = $DB->get_record('modules', ['name' => 'lti'], '*', MUST_EXIST);
 
@@ -91,7 +92,7 @@ if ($existing) {
         'modulename' => 'lti',
         'module' => $module->id,
         'section' => 0,
-        'visible' => 0,
+        'visible' => 1,
         'visibleoncoursepage' => 0,
         'groupmode' => 0,
         'groupingid' => 0,

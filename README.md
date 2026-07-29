@@ -7,7 +7,7 @@ Moodle TinyMCE plugin that adds a **Zoom Classroom** editor button and launches 
 - Adds a TinyMCE toolbar button and Insert menu item
 - Lets a Moodle admin map that button to an existing Moodle external tool
 - Opens a popup that starts Moodle's deep-link selection flow
-- Creates or reuses a hidden backing Moodle `mod_lti` instance for each selected asset
+- Creates or reuses a stealth backing Moodle `mod_lti` instance for each selected asset
 - Inserts an iframe into TinyMCE pointing at Moodle's standard `/mod/lti/launch.php?id=<cmid>` launch path
 - Lets Moodle perform the full LTI 1.3 OIDC launch flow for rendered content
 
@@ -64,7 +64,7 @@ It intentionally excludes repository-only content such as:
 ## Compatibility
 
 - Requires Moodle `4.1+` based on `version.php`
-- Tested in a Moodle `4.5.x` development environment
+- Tested in Moodle `4.5.x` and `5.2.x` development environments
 - Requires the TinyMCE editor
 
 ## Supported LTI version
@@ -78,7 +78,7 @@ Current implementation:
 
 - supports site-level mapping to one registered LTI tool
 - uses a popup launcher rather than a custom modal
-- creates hidden backing `mod_lti` instances for selected assets
+- creates stealth backing `mod_lti` instances for selected assets
 - launches rendered content through Moodle's standard LTI 1.3 OIDC flow
 
 You may want follow-up work for:
