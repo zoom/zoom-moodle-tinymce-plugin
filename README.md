@@ -63,8 +63,6 @@ It intentionally excludes repository-only content such as:
 
 ## Compatibility
 
-- Requires Moodle `4.1+` based on `version.php`
-- Tested in Moodle `4.5.x` and `5.2.x` development environments
 - Requires the TinyMCE editor
 
 ## Supported LTI version
