@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`tiny_zoomclassroom` adds a **Zoom Classroom** button to Moodle's TinyMCE editor and connects that button to a registered **LTI 1.3 Deep Linking** tool.
+`tiny_zoomclassroom` adds a **Zoom Classroom** button to **Moodle 5+** TinyMCE editors and connects that button to a registered **LTI 1.3 Deep Linking** tool.
 
 Its responsibilities are to:
 
@@ -53,6 +53,36 @@ The plugin owns these TinyMCE-specific endpoints:
 - `launcher.php`
 
 This means Zoom Classroom sees Moodle as the trusted platform identity, while the plugin owns only the editor-specific orchestration.
+
+## Tool compatibility and customization assumptions
+
+The plugin is designed to work with a standards-compliant **LTI 1.3 Deep Linking** tool.
+
+That means the plugin expects the tool to:
+
+- support standard LTI 1.3 initiate-login and message launch behavior
+- support standard Deep Linking request and response handling
+- return valid deep-linking content items, including an LTI resource launch URL or a tool-level fallback launch URL
+
+The plugin does **not** require a custom Zoom Classroom-specific return protocol for:
+
+- deep-link selection
+- placeholder insertion
+- saved-content rendering
+- final embedded launch
+
+Instead, the plugin owns the Moodle-side orchestration:
+
+- it starts dynamic registration using plugin-owned endpoints
+- it receives the selected deep-link result through Moodle's standard deep-linking flow
+- it persists the selected launch metadata server-side
+- it later performs a normal LTI 1.3 launch through plugin-owned `view.php` and `auth.php`
+
+Stated differently:
+
+- the **tool** remains a normal LTI 1.3 Deep Linking tool
+- **Moodle core** still provides issuer, token, JWKS, and signing primitives
+- the **plugin** provides the editor-safe persistence and render orchestration layer
 
 ## Main components
 
@@ -149,6 +179,88 @@ Important details:
 - the actual launch metadata stays server-side
 - the placeholder image exists to keep Moodle/TinyMCE submission paths from treating the field as empty
 
+## Data layers
+
+The design intentionally separates data by layer so saved Moodle content does not need to hold full LTI launch metadata.
+
+| Layer | What is stored | Where it lives | Purpose | Trust / sensitivity |
+|---|---|---|---|---|
+| Moodle LTI tool configuration | client ID, auth URLs, JWKS-related registration values, deployment mapping | Moodle core tables such as `lti_types` and related core config | defines the registered LTI 1.3 tool the plugin uses | admin-managed trust anchor; sensitive configuration but not stored by the plugin itself |
+| Deep-link selection response | title, launch URL, custom params, resource link details returned by the tool | transient popup / request payload during selection | source material used to create a stable embed record | untrusted until validated and normalized by the plugin |
+| Plugin embed metadata | `publicid`, `courseid`, `toolid`, `title`, `launchconfigjson`, timestamps | plugin table `tiny_zoomclassroom_emb` | canonical server-side record used for later launches | trusted only after plugin validation; should be treated as launch-sensitive server-side state |
+| Saved Moodle HTML field | placeholder markup, `data-embed-id`, hidden sentinel image reference | Moodle editor-backed content fields | durable editor-safe reference to the embed | intentionally low sensitivity; contains opaque pointer only |
+| Browser render state | hydrated iframe URL, editor DOM state, preview markup | browser DOM during editing or page view | turns saved placeholder back into live embedded content | derived state; not authoritative |
+| Launch handoff state | short-lived launch state tied to user session and selected embed | Moodle session | bridges `view.php` to `auth.php` securely | transient, session-bound, launch-sensitive |
+| Final LTI launch request | signed JWT claims and launch form fields | generated server-side at launch time and posted to the tool | completes the LTI 1.3 resource launch | sensitive runtime state; not persisted in saved editor HTML |
+
+### Data ownership by layer
+
+- **Moodle core owns**
+  - platform issuer
+  - token endpoint
+  - JWKS endpoint
+  - tool registration records
+- **The plugin owns**
+  - editor-facing registration workflow
+  - deep-link response validation and normalization
+  - server-side embed persistence
+  - launch handoff orchestration
+- **The tool owns**
+  - deep-link picker behavior
+  - resource launch destination
+  - post-launch application behavior
+
+## Data flow
+
+The data path is intentionally one-way:
+
+1. the tool returns a deep-link selection
+2. the plugin validates and normalizes that selection
+3. the plugin stores the normalized launch metadata server-side
+4. Moodle content stores only an opaque embed reference
+5. runtime rendering resolves that opaque reference back to a validated server-side launch record
+6. the plugin performs a normal LTI 1.3 launch using Moodle's platform identity
+
+### Data flow diagram
+
+```mermaid
+flowchart LR
+    A["Tool deep-link response"] --> B["prepare.php validation and normalization"]
+    B --> C["Plugin DB: tiny_zoomclassroom_emb"]
+    C --> D["Saved Moodle HTML placeholder"]
+    D --> E["render.js hydration"]
+    E --> F["view.php"]
+    F --> G["Session launch handoff"]
+    G --> H["auth.php"]
+    H --> I["Signed LTI 1.3 launch"]
+    I --> J["Tool resource render"]
+```
+
+### Trust boundaries in the data flow
+
+- **Boundary 1: Tool to plugin**
+  - the deep-link response originates outside Moodle
+  - `prepare.php` treats it as untrusted input
+  - the plugin validates version, tool mapping, URL constraints, and launch assumptions before persistence
+- **Boundary 2: Plugin DB to saved HTML**
+  - only `publicid` crosses into saved editor content
+  - raw launch metadata stays server-side
+- **Boundary 3: Saved HTML to runtime launch**
+  - `render.js` reads only the opaque embed ID from the saved markup
+  - `view.php` resolves that ID back to trusted server-side state
+- **Boundary 4: Session handoff to final launch**
+  - `view.php` creates short-lived, session-bound launch state
+  - `auth.php` validates that state before generating the signed launch
+
+### Why the saved HTML is intentionally minimal
+
+Storing only an opaque embed reference in saved HTML gives the design a few benefits:
+
+- it avoids exposing the full launch descriptor in Moodle content fields
+- it reduces the risk of teachers or students copying launch metadata between contexts
+- it allows the plugin to re-check course access and tool configuration at render time
+- it keeps launch-sensitive details in a server-side record that can be invalidated or deleted centrally
+
 ## End-to-end flow
 
 ```mermaid
@@ -180,6 +292,21 @@ sequenceDiagram
     Auth->>Tool: Complete LTI 1.3 launch
     Tool-->>User: Render resource
 ```
+
+## Responsibility boundaries
+
+```mermaid
+flowchart LR
+    A["Moodle core"] --> B["Platform issuer, token, JWKS, signing helpers"]
+    C["tiny_zoomclassroom plugin"] --> D["Dynamic registration orchestration, deep-link persistence, render bootstrap"]
+    E["LTI 1.3 tool"] --> F["Deep-link picker and final resource experience"]
+```
+
+In practice:
+
+- **Moodle core** remains the LTI platform foundation
+- **the plugin** makes that platform usable inside TinyMCE without creating duplicate `mod_lti` activities
+- **the tool** remains a normal standards-based LTI 1.3 deep-linking tool rather than a plugin-specific integration surface
 
 ## Deep-link selection details
 

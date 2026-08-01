@@ -2,7 +2,7 @@
 
 ## What this plugin does
 
-The Zoom Classroom TinyMCE plugin adds a **Zoom Classroom** button to Moodle's TinyMCE editor so users can select Zoom Classroom content through **LTI 1.3 deep linking** and insert it into Moodle content areas.
+The Zoom Classroom TinyMCE plugin adds a **Zoom Classroom** button to **Moodle 5+** TinyMCE editors so users can select Zoom Classroom content through **LTI 1.3 deep linking** and insert it into Moodle content areas.
 
 Typical use cases include:
 
@@ -97,7 +97,7 @@ Report the issue to your Moodle administrator with:
 If content was inserted successfully:
 
 - the content should render as embedded Zoom Classroom content when viewed later, or
-- it may appear according to the exact resource behavior returned by Zoom Classroom
+- it may appear according to the exact behavior returned by Zoom Classroom for that resource type
 
 ## Common questions
 
