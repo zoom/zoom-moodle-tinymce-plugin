@@ -104,8 +104,7 @@ class plugininfo extends plugin implements
             return false;
         }
 
-        return \has_capability('moodle/course:manageactivities', $coursecontext)
-            && \has_capability('mod/lti:addcoursetool', $coursecontext);
+        return !\isguestuser();
     }
 
     /**

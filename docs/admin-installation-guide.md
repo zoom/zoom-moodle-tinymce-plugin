@@ -2,25 +2,28 @@
 
 ## Overview
 
-The `tiny_zoomclassroom` plugin adds a Zoom Classroom button to Moodle's TinyMCE editor and launches a preconfigured **LTI 1.3 deep-linking** tool.
+The `tiny_zoomclassroom` plugin adds a Zoom Classroom button to Moodle's TinyMCE editor and launches a Moodle-registered **LTI 1.3 deep-linking** tool.
 
-This plugin does **not** register an LTI tool by itself. A Moodle administrator must already have a working **External tool** registration for Zoom Classroom.
+The plugin:
 
-For each selected deep-linked asset, the plugin creates or reuses a **hidden Moodle External tool activity** behind the scenes so Moodle can perform the normal **LTI 1.3 OIDC launch flow**.
+- uses a plugin-owned dynamic registration flow
+- reuses Moodle's issuer, token, signing, and JWKS infrastructure
+- stores selected launch metadata server-side
+- stores only an opaque embed reference in saved TinyMCE HTML
+- avoids creating duplicate Moodle `mod_lti` activities for embedded resources
 
 ## Requirements
 
 - Moodle with the TinyMCE editor enabled
-- A preconfigured **LTI 1.3** external tool for Zoom Classroom
+- A Zoom Classroom dynamic registration URL or an existing **LTI 1.3** external tool for Zoom Classroom
 - The external tool must support **LTI Deep Linking**
 - Administrator access to install local plugins
-- A ZIP extraction method or Git checkout process for moving plugin files into Moodle
 
 ## Supported scope
 
 - Supports **LTI 1.3 only**
 - Does **not** support LTI 1.1
-- Designed to work with an admin-selected Zoom Classroom tool registration
+- Designed to work with one admin-selected Zoom Classroom tool registration per site
 
 ## Installation
 
@@ -36,13 +39,11 @@ For each selected deep-linked asset, the plugin creates or reuses a **hidden Moo
    ```
 
 4. Continue the installation flow.
-
 5. Open:
 
    **Site administration → Notifications**
 
 6. Complete the plugin upgrade prompt.
-
 7. Confirm the plugin appears in:
 
    **Site administration → Plugins → Text editors → TinyMCE editor → Zoom Classroom**
@@ -53,51 +54,59 @@ For each selected deep-linked asset, the plugin creates or reuses a **hidden Moo
 
    **Site administration → Plugins → Text editors → TinyMCE editor → Zoom Classroom**
 
-2. In **Registered LTI tool**, choose the Zoom Classroom external tool registration.
-
-   Notes:
-   - Only eligible **LTI 1.3** tools should be selected
-   - The selected tool must support **deep linking**
-
-3. Optionally adjust:
-   - **Popup width**
-   - **Popup height**
-
-4. Save changes.
+2. Paste the Zoom Classroom dynamic registration URL.
+3. Start the registration flow.
+4. Complete the tool-side registration flow.
+5. Return to the plugin page.
+6. Confirm the configured Moodle tool is shown.
+7. If needed, use the plugin page to:
+   - replace the configured tool
+   - select an existing eligible tool
+   - clear the configured tool
+   - delete the configured tool
+8. Optionally adjust:
+   - popup width
+   - popup height
+   - allowed launch domains
 
 ## Recommended Moodle checks
 
-Before giving this to teachers, verify:
+Before giving this to teachers or students, verify:
 
-- The selected external tool launches successfully in Moodle
-- Dynamic registration or manual registration for the tool is already complete
-- The tool's **deep-linking target URL** is configured correctly on the tool side
-- The Moodle site URL is externally reachable if the tool must call back to Moodle
-- Popups are allowed in the browser for your Moodle site
+- the configured external tool exists in Moodle
+- the tool is **LTI 1.3**
+- the tool supports **deep linking**
+- the plugin OpenID configuration endpoint is reachable by the tool
+- Moodle's token and JWKS endpoints are reachable by the tool
+- the Moodle site URL is externally reachable if the tool must call back to Moodle
+- popups are allowed in the browser for your Moodle site
 
 ## Permissions and visibility
 
-The Zoom Classroom TinyMCE button is intended for users who can add or manage course content through Moodle's LTI deep-linking flow.
+The Zoom Classroom button is intended for users who can edit TinyMCE content in a real course context and who can successfully complete the configured deep-link flow.
 
 If the button does not appear, check:
 
-- The plugin is configured with a valid tool
-- The user is editing in a real course context
-- The user has permission to use the configured deep-link workflow in that course
+- the plugin is configured with a valid tool
+- the user is editing inside a real course context
+- the page is using TinyMCE
+- the user is not a guest
+- Moodle role configuration allows the user to edit that content area
 
 ## Smoke test
 
 Use this quick validation after installation:
 
 1. Open a course as a teacher or admin.
-2. Edit an activity or resource that uses TinyMCE.
+2. Edit an activity, page, label, or other item that uses TinyMCE.
 3. Confirm the **Zoom Classroom** button appears in the editor.
 4. Click the button.
 5. Confirm a popup opens to the Zoom Classroom deep-link picker.
 6. Select content in Zoom Classroom.
 7. Confirm the popup closes.
 8. Confirm content is inserted back into the TinyMCE editor.
-9. Confirm the inserted content launches through Moodle's standard LTI 1.3 flow when rendered.
+9. Save the Moodle page.
+10. Confirm the content renders through an LTI 1.3 launch when viewed later.
 
 ## Troubleshooting
 
@@ -105,38 +114,37 @@ Use this quick validation after installation:
 
 Check:
 
-- Plugin is installed under the correct folder
+- plugin is installed in the correct folder
 - Moodle upgrade completed successfully
 - TinyMCE is the active editor
-- A valid Zoom Classroom LTI 1.3 tool is selected in plugin settings
-- The editor is being used inside a course context
+- a valid Zoom Classroom LTI 1.3 tool is configured
+- the editor is being used inside a course context
 
 ### Popup opens but launch fails
 
 Check:
 
-- The selected external tool is the correct Zoom Classroom registration
-- The tool supports **LTI 1.3 deep linking**
-- The tool's OIDC login initiation and redirect URIs are configured correctly
-- The Moodle site URL is reachable from the tool
+- the configured external tool is the correct Zoom Classroom registration
+- the tool supports **LTI 1.3 deep linking**
+- the tool's OIDC login initiation and redirect URIs are configured correctly
+- the Moodle site URL is reachable from the tool
 
 ### Deep-link picker opens but returned content fails
 
 Check:
 
-- The tool is returning a valid **LtiDeepLinkingResponse**
-- The response is being posted back to Moodle successfully
-- Browser popup/cookie restrictions are not interfering with the return flow
-- The Moodle user has permission to create/use the backing hidden External tool instance
+- the tool is returning a valid **LtiDeepLinkingResponse**
+- browser popup and cookie restrictions are not interfering with the return flow
+- the returned launch URL is on an allowed domain
 
-### Deep-link selection succeeds but launched content does not open correctly
+### Deep-link selection succeeds but rendered content does not open
 
 Check:
 
-- The inserted iframe is pointing to Moodle's `/mod/lti/launch.php?id=...` URL
-- Moodle is able to complete the standard LTI 1.3 OIDC launch flow
-- The tool's initiate-login, auth completion, and target link URI chain is valid
-- The selected deep-linked item returned a launchable resource configuration
+- the configured tool is still active and valid
+- the saved placeholder resolves to plugin `view.php`
+- Moodle can complete the plugin-owned LTI 1.3 OIDC launch flow
+- the selected deep-linked item returned a launchable resource configuration
 
 ## Upgrade notes
 
@@ -152,4 +160,6 @@ When updating the plugin:
 - This plugin assumes the configured external tool is trusted by the Moodle administrator
 - The plugin is intentionally scoped to **LTI 1.3 deep linking only**
 - Tool registration and trust decisions remain an administrator responsibility
-- The plugin creates hidden backing `mod_lti` instances so launches go through Moodle's standard OIDC flow
+- Moodle remains the LTI platform identity for issuer, token, and JWKS
+- The plugin stores launch metadata in its own database table and keeps only an opaque embed ID in saved editor HTML
+- The plugin does not create backing `mod_lti` instances for embedded launches

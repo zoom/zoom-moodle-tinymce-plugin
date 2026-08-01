@@ -2,314 +2,296 @@
 
 ## Purpose
 
-The `tiny_zoomclassroom` plugin adds a **Zoom Classroom** button to Moodle's TinyMCE editor and connects that button to a preconfigured **LTI 1.3 Deep Linking** tool.
+`tiny_zoomclassroom` adds a **Zoom Classroom** button to Moodle's TinyMCE editor and connects that button to a registered **LTI 1.3 Deep Linking** tool.
 
-Its job is to:
+Its responsibilities are to:
 
-- launch the Zoom Classroom deep-link picker
-- receive the selected deep-linked resource
-- create or reuse a hidden backing Moodle `mod_lti` instance
-- insert embeddable editor content that launches through Moodle's normal **LTI 1.3 OIDC flow**
+- start deep linking from TinyMCE
+- reuse Moodle's LTI platform trust material where appropriate
+- validate the returned launch configuration
+- persist launch metadata server-side
+- store only an opaque embed reference in editor HTML
+- render the selected resource later through a normal LTI 1.3 OIDC launch
 
-## High-level idea
+The plugin does **not** create user-visible `mod_lti` activities for each selected resource.
 
-This plugin does **not** ask teachers to manually create a visible Moodle `mod_lti` activity.
+## Core design
 
-Instead, it:
+The current design is intentionally split into two layers:
 
-1. uses Moodle's deep-linking flow to let a teacher select content
-2. receives Moodle's interpreted tool configuration for that selected item
-3. creates or reuses a hidden backing `mod_lti` activity/module
-4. stores an iframe in the editor
-5. points that iframe at Moodle's standard `/mod/lti/launch.php?id=<cmid>` entrypoint
-6. lets Moodle perform the normal OIDC initiate-login → auth → tool launch sequence
+1. **Selection time**
+   - Moodle deep linking returns a selected LTI resource configuration
+   - the plugin validates and normalizes it
+   - the plugin stores that launch metadata in its own table
+   - the editor receives only an opaque embed ID
+
+2. **Render time**
+   - saved content contains a placeholder node
+   - plugin JavaScript hydrates the placeholder into an iframe
+   - the iframe loads plugin `view.php`
+   - `view.php` and `auth.php` complete the LTI 1.3 launch against the configured tool
+
+This keeps saved editor content small and avoids storing the full launch descriptor directly in the HTML field.
+
+## Trust model
+
+The plugin reuses Moodle as the LTI platform for:
+
+- issuer: Moodle `$CFG->wwwroot`
+- token endpoint: `/mod/lti/token.php`
+- JWKS endpoint: `/mod/lti/certs.php`
+- signing helpers from Moodle's LTI subsystem
+
+The plugin owns these TinyMCE-specific endpoints:
+
+- `openid-configuration.php`
+- `openid-registration.php`
+- `startregistration.php`
+- `auth.php`
+- `view.php`
+- `prepare.php`
+- `launcher.php`
+
+This means Zoom Classroom sees Moodle as the trusted platform identity, while the plugin owns only the editor-specific orchestration.
 
 ## Main components
 
-### PHP
+### Admin and registration flow
 
-- `settings.php`
-  - admin settings
-  - chooses which Moodle external tool registration is used
+- `register.php`
+  - admin UI for dynamic registration and configured-tool management
+- `startregistration.php`
+  - starts IMS LTI Dynamic Registration using plugin-owned OpenID configuration
+- `openid-configuration.php`
+  - advertises Moodle issuer, token, and JWKS, plus plugin auth/registration endpoints
+- `openid-registration.php`
+  - creates or updates the Moodle LTI 1.3 tool record
 
-- `classes/plugininfo.php`
-  - controls whether the Tiny plugin is enabled
-  - injects runtime config into TinyMCE
+### Deep-link selection flow
 
 - `launcher.php`
   - popup page opened from TinyMCE
-  - starts the deep-link picker flow
-  - handles the returned Moodle deep-link result in JavaScript
-
+  - embeds Moodle's core deep-linking flow
 - `prepare.php`
-  - AJAX endpoint
-  - validates the selected deep-link config
-  - creates or reuses a hidden backing `mod_lti` instance
-  - returns a Moodle `/mod/lti/launch.php?id=<cmid>` URL
+  - receives the returned deep-link configuration
+  - validates URL and tool assumptions
+  - persists launch metadata server-side
+  - returns an opaque embed ID and launch bootstrap URL
+
+### Render and launch flow
+
+- `view.php`
+  - authenticated bootstrap for later rendering
+  - loads server-side launch metadata by opaque embed ID
+  - stores a short-lived session handoff
+  - posts an initiate-login request to the tool
+- `auth.php`
+  - completes the LTI 1.3 authorization handoff
+  - uses Moodle signing helpers to generate the final launch form
+- `placeholder.php`
+  - returns a stable placeholder image used to keep non-empty editor content durable across Moodle/TinyMCE save paths
+
+### Shared helpers
+
+- `locallib.php`
+  - URL allowlist validation
+  - launch config normalization
+  - embed record persistence helpers
+- `classes/hook_callbacks.php`
+  - loads the global renderer on Moodle pages
+- `lib.php`
+  - legacy fallback for loading the renderer on older page paths
 
 ### JavaScript
 
-- `amd/src/ui.js`
-  - opens the popup from TinyMCE
+- `amd/src/plugin.js`
+  - TinyMCE integration
+  - hydrates placeholders while editing
+  - dehydrates editor HTML before save without mutating the visible editor surface
+- `amd/src/render.js`
+  - converts saved placeholders into live iframes
+  - supports late DOM insertion via `MutationObserver`
 
-- JavaScript embedded in `launcher.php`
-  - receives deep-link return data
-  - calls `prepare.php`
-  - inserts iframe HTML into TinyMCE
+## Persistence model
 
-### Moodle core LTI
+### Database
 
-- `/mod/lti/contentitem.php`
-  - standard Moodle deep-link selection entrypoint
+The plugin stores launch metadata in:
 
-- `/mod/lti/contentitem_return.php`
-  - standard Moodle deep-link return processing
+- table: `tiny_zoomclassroom_emb`
 
-- `/mod/lti/locallib.php`
-  - core helper functions for:
-    - deep-link request building
-    - tool configuration extraction
-    - LTI launch generation
+Each record contains:
 
-## End-to-end sequence
+- `publicid`
+- `courseid`
+- `toolid`
+- `title`
+- `launchconfigjson`
+- `timecreated`
+- `timemodified`
+
+`publicid` is the only identifier placed into saved editor HTML.
+
+### Saved editor HTML
+
+Saved HTML contains a placeholder similar to:
+
+```html
+<div class="tiny_zoomclassroom-embed" data-title="LTI 1.3" data-embed-id="tzc_...">
+  <div class="tiny_zoomclassroom-preview">LTI 1.3</div>
+  <img class="tiny_zoomclassroom-sentinel" src=".../placeholder.php?id=tzc_..." alt="" role="presentation" aria-hidden="true" width="1" height="1" style="display:none">
+</div>
+```
+
+Important details:
+
+- the HTML contains an opaque reference only
+- the actual launch metadata stays server-side
+- the placeholder image exists to keep Moodle/TinyMCE submission paths from treating the field as empty
+
+## End-to-end flow
 
 ```mermaid
 sequenceDiagram
-    participant Teacher
-    participant TinyMCE
-    participant PluginPopup as "Plugin popup (launcher.php)"
+    participant User
+    participant Editor as "TinyMCE"
+    participant Popup as "launcher.php"
     participant MoodleDL as "Moodle deep-link flow"
-    participant Zoom as "Zoom Classroom tool"
+    participant Tool as "Zoom Classroom"
     participant Prepare as "prepare.php"
-    participant Backing as "Hidden mod_lti instance"
-    participant MoodleLaunch as "Moodle /mod/lti/launch.php"
+    participant DB as "tiny_zoomclassroom_emb"
+    participant Render as "render.js"
+    participant View as "view.php"
+    participant Auth as "auth.php"
 
-    Teacher->>TinyMCE: Clicks Zoom Classroom button
-    TinyMCE->>PluginPopup: Opens popup launcher
-    PluginPopup->>MoodleDL: Opens /mod/lti/contentitem.php
-    MoodleDL->>Zoom: Starts LTI 1.3 Deep Linking request
-    Zoom-->>MoodleDL: Returns deep-link selection
-    MoodleDL-->>PluginPopup: Returns tool configuration
-    PluginPopup->>Prepare: POST selected config
-    Prepare->>Backing: Create or reuse hidden mod_lti
-    Prepare-->>PluginPopup: Returns /mod/lti/launch.php?id=<cmid>
-    PluginPopup->>TinyMCE: Inserts iframe HTML into editor
-    PluginPopup-->>Teacher: Closes popup
-    Teacher->>TinyMCE: Saves editor content
-    TinyMCE->>MoodleLaunch: Later loads iframe src
-    MoodleLaunch->>Zoom: Initiate login / OIDC / oauth complete / target link
-    Zoom-->>MoodleLaunch: Returns launched content
-    MoodleLaunch-->>Teacher: Displays live Zoom Classroom resource
+    User->>Editor: Click Zoom Classroom button
+    Editor->>Popup: Open popup
+    Popup->>MoodleDL: Open core deep-link picker
+    MoodleDL->>Tool: Start deep-link request
+    Tool-->>MoodleDL: Return deep-link selection
+    MoodleDL-->>Popup: Return interpreted config
+    Popup->>Prepare: POST selected config
+    Prepare->>DB: Save launch metadata
+    Prepare-->>Popup: Return embed ID + view URL
+    Popup->>Editor: Insert placeholder HTML
+    User->>Editor: Save content
+    Render->>View: Hydrate placeholder into iframe
+    View->>Auth: Create short-lived launch handoff
+    Auth->>Tool: Complete LTI 1.3 launch
+    Tool-->>User: Render resource
 ```
 
-## Runtime configuration flow
+## Deep-link selection details
 
-When TinyMCE is rendered, `classes/plugininfo.php` provides configuration to the editor:
+### `launcher.php`
 
-- selected tool id
-- course id
-- launcher path
-- sesskey
-- popup dimensions
-- UI strings
-
-This configuration is used by `amd/src/ui.js` to open the correct popup flow.
-
-## Deep-link selection flow
-
-### 1. Teacher clicks the TinyMCE button
-
-The Tiny plugin:
-
-- checks the configured LTI tool
-- resolves the course id
-- opens `launcher.php` in a popup
-
-Relevant files:
-
-- `amd/src/ui.js`
-- `classes/plugininfo.php`
-
-### 2. Popup starts the Moodle deep-link flow
-
-`launcher.php` embeds Moodle's standard deep-link selection endpoint:
+`launcher.php` opens Moodle's standard content-item flow:
 
 - `/mod/lti/contentitem.php`
 
-That means the plugin now relies on Moodle's built-in deep-link behavior instead of rebuilding the entire selection flow itself.
+That is intentional. The plugin does not replace Moodle's content-selection UI; it wraps it so the returned selection can be persisted in a TinyMCE-safe way.
 
-### 3. Moodle converts the selected content into tool config
+### `prepare.php`
 
-After the Zoom Classroom tool returns the selected deep-linked content, Moodle processes it using core LTI logic.
+`prepare.php` receives the tool configuration chosen through deep linking and:
 
-Important detail:
+- validates `sesskey`
+- requires Moodle login
+- ensures the configured tool is LTI 1.3
+- validates returned launch URLs against the configured allowlist
+- falls back to the registered tool URL when the selected item omits a resource-level URL
+- normalizes the launch config
+- stores it in `tiny_zoomclassroom_emb`
 
-- Moodle does **not** return already-rendered HTML for a live launch
-- It returns a **tool configuration object**
-- This is the same kind of data Moodle uses when configuring an LTI resource link
+Response payload:
 
-That returned config may include:
+- `embedid`
+- `launchurl`
+- `title`
 
-- `name`
-- `toolurl`
-- `securetoolurl`
-- `instructorcustomparameters`
-- grade-related settings
-- icon-related settings
+The opaque ID is then written into editor HTML.
 
-## Why a backing `mod_lti` instance is needed
+## Render-time launch details
 
-Deep linking selects content.
+### `render.js`
 
-It does **not** by itself create a running LTI launch inside the editor body.
+The renderer runs in three important contexts:
 
-For a correct LTI 1.3 launch, Moodle should begin at the tool's **OIDC initiate-login URL**, continue through Moodle auth handling, then land at the selected target link URI.
-
-The plugin therefore cannot simply iframe the target link URI directly.
-
-Instead, after selection it must transform the returned config into a real Moodle External tool instance so launches can later go through:
-
-- `/mod/lti/launch.php`
-- initiate login
-- `/mod/lti/auth.php`
-- tool OAuth completion
-- final target link URI
-
-## `prepare.php` responsibilities
-
-`prepare.php` is called by the popup after Moodle has returned the selected content configuration.
+1. inside TinyMCE while editing
+2. on normal Moodle display pages
+3. on pages where Moodle injects content after initial load, such as grading views
 
 It:
 
-- validates `sesskey`
-- checks course permissions
-- ensures the configured tool is LTI 1.3
-- extracts the returned tool configuration fields we care about
-- creates or reuses a hidden backing `mod_lti` instance
-- returns a Moodle `/mod/lti/launch.php?id=<cmid>` URL
+- finds `.tiny_zoomclassroom-embed` containers
+- extracts `data-embed-id`
+- replaces preview text with an iframe targeting plugin `view.php`
+- watches later DOM insertions with `MutationObserver`
 
-That launch URL is what gets inserted into TinyMCE as the iframe `src`.
+### `view.php`
 
-## Backing `mod_lti` responsibilities
+`view.php`:
 
-The hidden backing module stores the selected resource configuration in a real Moodle `lti` record and `course_modules` entry.
+- loads the launch config from the opaque ID
+- requires course login
+- checks that the mapped tool is still LTI 1.3
+- creates a short-lived session handoff
+- posts an OIDC initiate-login request to the tool's `lti_initiatelogin` URL
 
-That allows Moodle core to handle the real launch path using:
+### `auth.php`
 
-- `/mod/lti/launch.php`
-- `lti_initiate_login(...)`
-- `/mod/lti/auth.php`
-- standard LTI 1.3 OIDC completion
+`auth.php`:
 
-## Important distinction: deep linking vs launch
+- validates launch-state presence and TTL
+- validates `client_id`
+- validates `redirect_uri` against the configured Moodle tool
+- validates login/session assumptions
+- uses Moodle's LTI helper functions to sign the final launch request
 
-### Deep linking
+For plugin-owned embedded launches it creates a pseudo LTI instance rather than a visible course module.
 
-Used when the teacher is choosing content.
+## Why this design avoids duplicate activities
 
-Message type:
+The plugin does **not** create a dedicated `mod_lti` activity for each selected asset.
 
-- `ContentItemSelectionRequest`
+That matters because:
 
-Returned by tool as:
+- creating visible or stealth `mod_lti` records for editor embeds introduces course-module lifecycle problems
+- it can confuse teachers and students with duplicate activities
+- it ties editor rendering to course-module assumptions that do not fit all TinyMCE contexts
 
-- `LtiDeepLinkingResponse`
+Instead, the plugin uses:
 
-### Launch
+- Moodle core for deep-link selection
+- plugin storage for embed persistence
+- Moodle core signing helpers for launch
 
-Used when the saved editor content is later rendered.
+## Security posture
 
-Message type:
+The current design improves the earlier implementation by:
 
-- normal LTI launch
+- removing full launch metadata from saved editor HTML
+- replacing it with an opaque ID
+- keeping authorization checks server-side at render time
 
-This second step is what actually displays the chosen Zoom Classroom resource.
+Runtime protections still include:
 
-## Data persistence model
+- Moodle authentication
+- course access checks in `view.php`
+- tool version checks
+- redirect URI validation
+- launch-domain allowlisting
+- short-lived session handoff state
 
-### Stored by this plugin
+## Limitations
 
-Only admin settings:
+- the plugin currently supports one configured Zoom Classroom tool per site
+- the placeholder image approach is still a compatibility workaround for Moodle/TinyMCE save behavior
 
-- selected tool id
-- popup width
-- popup height
+## Recommended next improvements
 
-### Not stored in plugin tables
-
-- no custom DB tables
-- no custom persistence layer for teacher selections
-
-### Persisted in Moodle content
-
-The thing that is ultimately saved is the editor HTML, including the inserted iframe pointing to `/mod/lti/launch.php?id=<cmid>`.
-
-### Persisted in Moodle core tables
-
-The selected resource is also persisted in Moodle core `lti` / `course_modules` data because the plugin creates or reuses a hidden backing `mod_lti` instance.
-
-So the selected resource is persisted in two practical places:
-
-- the saved TinyMCE iframe HTML
-- the hidden backing Moodle External tool instance
-
-## Security model
-
-### Current controls
-
-- plugin is limited to users with appropriate course capabilities
-- popup entry requires `sesskey`
-- backing module creation requires `sesskey`
-- backing module creation checks course capabilities
-- plugin is intentionally restricted to **LTI 1.3 only**
-- final launch goes through Moodle's standard LTI 1.3 launch controller
-
-### Trust boundary
-
-The configured external tool is assumed to be trusted by the Moodle administrator.
-
-That is an important public-release assumption and should be documented.
-
-## Why the success message appeared earlier
-
-The message:
-
-- `Successfully fetched tool configuration from the selected content.`
-
-comes from Moodle's standard deep-link return path.
-
-That message means:
-
-- the deep-link selection succeeded
-- Moodle successfully parsed the returned content into a tool configuration object
-
-It does **not** mean Moodle has already performed the final launch into the editor.
-
-The plugin's extra `prepare.php` bridge is what turns that successful selection into a real hidden Moodle LTI module and a live embedded launch.
-
-## Known limitations
-
-- This is an editor-embedded launch pattern backed by hidden Moodle `mod_lti` activities
-- It depends on the returned deep-link item including enough launchable data to create a launchable resource link
-- The inserted content is iframe-based
-- Behavior may vary depending on what Zoom Classroom returns in the deep-link response
-
-## Suggested future improvements
-
-- add automated PHPUnit and JS coverage
-- add stronger validation of required returned fields before allowing insertion
-- document exactly which deep-link response shapes are supported
-- consider lifecycle management for hidden backing `mod_lti` records
-- add a diagnostics mode for admins to inspect selected deep-link config safely
-
-## File reference map
-
-- `settings.php`
-- `classes/plugininfo.php`
-- `amd/src/ui.js`
-- `launcher.php`
-- `prepare.php`
-- `mod/lti/contentitem.php`
-- `mod/lti/launch.php`
-- `mod/lti/contentitem_return.php`
-- `mod/lti/locallib.php`
+- add automated coverage for:
+  - teacher insert flow
+  - student submission flow
+  - grader display flow
+- add a cleanup path for orphaned embed metadata records

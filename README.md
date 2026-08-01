@@ -1,15 +1,16 @@
 # `tiny_zoomclassroom`
 
-Moodle TinyMCE plugin that adds a **Zoom Classroom** editor button and launches an already-registered **LTI 1.3 deep-linking** tool.
+Moodle TinyMCE plugin that adds a **Zoom Classroom** editor button and launches a Moodle-registered **LTI 1.3 deep-linking** tool.
 
 ## What it does
 
 - Adds a TinyMCE toolbar button and Insert menu item
-- Lets a Moodle admin map that button to an existing Moodle external tool
-- Opens a popup that starts Moodle's deep-link selection flow
-- Creates or reuses a stealth backing Moodle `mod_lti` instance for each selected asset
-- Inserts an iframe into TinyMCE pointing at Moodle's standard `/mod/lti/launch.php?id=<cmid>` launch path
-- Lets Moodle perform the full LTI 1.3 OIDC launch flow for rendered content
+- Lets a Moodle admin register or update the Zoom Classroom tool through the plugin-owned dynamic registration flow
+- Reuses Moodle's LTI platform identity, signing helpers, token endpoint, and JWKS endpoint
+- Opens Moodle's normal deep-link selection flow in a popup
+- Stores selected resource launch metadata server-side in the plugin database
+- Inserts a TinyMCE placeholder that contains only an opaque embed ID, not the launch metadata itself
+- Renders saved content through plugin-owned `view.php` and `auth.php` endpoints without creating backing `mod_lti` activities
 
 ## Install
 
@@ -22,8 +23,11 @@ Moodle TinyMCE plugin that adds a **Zoom Classroom** editor button and launches 
 ## Configure
 
 1. Go to **Site administration → Plugins → Text editors → TinyMCE editor → Zoom Classroom**
-2. Choose the existing Moodle **External tool** registration for Zoom Classroom
-3. Save
+2. Paste the Zoom Classroom dynamic registration URL and start registration
+3. Complete the tool-side registration flow
+4. Return to the plugin page and confirm the configured Moodle tool is shown
+5. If needed, replace or clear the configured tool from the same page
+6. Adjust popup width, popup height, and allowed launch domains if needed
 
 ## Build release zip
 
@@ -41,6 +45,7 @@ The release zip includes only installable plugin files:
 
 - PHP plugin files
 - `classes/`
+- `db/`
 - `lang/`
 - `pix/`
 - compiled JavaScript in `amd/build/`
@@ -55,43 +60,37 @@ It intentionally excludes repository-only content such as:
 - `ci/`
 - any pre-existing `dist/` contents
 
-## Assumptions
-
-- The selected external tool is already configured in Moodle
-- The selected external tool supports **LTI 1.3 deep linking**
-- The tool returns launchable deep-link content that Moodle can convert into a usable LTI resource configuration
-
 ## Compatibility
 
 - Requires the TinyMCE editor
+- Supports **LTI 1.3 deep linking only**
+- Does **not** support LTI 1.1
 
-## Supported LTI version
+## Storage model
 
-- This plugin supports **LTI 1.3 deep linking only**
-- LTI 1.1 tools are intentionally not supported
+The plugin stores selected embed launch metadata in its own database table:
 
-## Current scope
+- tool ID
+- course ID
+- title
+- normalized launch configuration
+- timestamps
 
-Current implementation:
+Saved TinyMCE HTML stores only:
 
-- supports site-level mapping to one registered LTI tool
-- uses a popup launcher rather than a custom modal
-- creates stealth backing `mod_lti` instances for selected assets
-- launches rendered content through Moodle's standard LTI 1.3 OIDC flow
+- an opaque embed ID in `data-embed-id`
+- a placeholder image URL pointing to plugin `placeholder.php`
 
-You may want follow-up work for:
-
-- lifecycle management for hidden backing `mod_lti` instances
-- tighter validation that the chosen tool and returned content are launchable
-- a better admin selector UI
-- automated tests in a Moodle dev environment
+The saved HTML does **not** store raw launch metadata, client secrets, or private keys.
 
 ## Security and trust model
 
 - The Moodle administrator selects and trusts the backing external tool registration
-- The plugin supports **LTI 1.3 only** and intentionally does not support LTI 1.1
-- Deep-link rendering is launched through Moodle core instead of directly iframing the tool target URL
-- Tool-returned launch metadata, including custom parameters, may be stored in Moodle core `mod_lti` records
+- Moodle remains the LTI platform identity for issuer, token, and JWKS
+- The plugin owns the TinyMCE-specific OpenID configuration, registration, and authorization endpoints
+- Launch URLs must use `https` and match an administrator-managed allowlist of approved domains
+- Rendered launches require an authenticated Moodle session and course access at runtime
+- The final `view.php` → `auth.php` handoff uses short-lived server-side session state to reduce replay risk
 
 ## Support boundaries
 

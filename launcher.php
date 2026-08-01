@@ -35,8 +35,9 @@ $course = get_course($courseid);
 require_login($course);
 
 $context = context_course::instance($courseid);
-require_capability('moodle/course:manageactivities', $context);
-require_capability('mod/lti:addcoursetool', $context);
+if (isguestuser()) {
+    throw new required_capability_exception($context, 'moodle/course:view', 'nopermissions', '');
+}
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('popup');
 $PAGE->set_url(new moodle_url('/lib/editor/tiny/plugins/zoomclassroom/launcher.php', [
@@ -98,13 +99,34 @@ echo $OUTPUT->header();
 
             if (html) {
                 targetEditor.execCommand('mceInsertContent', false, html);
+                if (window.opener && typeof window.opener.require === 'function') {
+                    window.opener.require(['tiny_zoomclassroom/render'], (render) => {
+                        const body = targetEditor.getBody ? targetEditor.getBody() : null;
+                        if (body && render && typeof render.upgradePlaceholdersInRoot === 'function') {
+                            render.upgradePlaceholdersInRoot(body);
+                        }
+                    });
+                }
+                if (typeof targetEditor.fire === 'function') {
+                    targetEditor.fire('SetContent');
+                }
+                if (typeof targetEditor.nodeChanged === 'function') {
+                    window.setTimeout(() => targetEditor.nodeChanged(), 0);
+                }
             }
             window.close();
         };
 
-        const buildIframeHtml = (launchUrl, title) => {
+        const buildEmbedHtml = (embedId, title) => {
             const label = title || fallbackText;
-            return `<iframe src="${escapeHtml(launchUrl)}" title="${escapeHtml(label)}" style="width:100%;min-height:480px;border:0;" allowfullscreen></iframe>`;
+            const escapedLabel = escapeHtml(label);
+            const placeholderUrl = `${M.cfg.wwwroot}/lib/editor/tiny/plugins/zoomclassroom/placeholder.php?id=${encodeURIComponent(embedId)}`;
+            const escapedPlaceholderUrl = escapeHtml(placeholderUrl);
+            const escapedEmbedId = escapeHtml(embedId);
+            return `<div class="tiny_zoomclassroom-embed" data-title="${escapedLabel}" data-embed-id="${escapedEmbedId}">` +
+                `<div class="tiny_zoomclassroom-preview">${escapedLabel}</div>` +
+                `<img src="${escapedPlaceholderUrl}" alt="" role="presentation" aria-hidden="true" class="tiny_zoomclassroom-sentinel" width="1" height="1" style="display:none" />` +
+                `</div>`;
         };
 
         window.processContentItemReturnData = async function(returnData) {
@@ -133,11 +155,16 @@ echo $OUTPUT->header();
                 }
 
                 const payload = await response.json();
-                if (!payload || !payload.launchurl) {
-                    throw new Error('Missing launch URL');
+                if (!payload || !payload.launchurl || !payload.embedid) {
+                    throw new Error(
+                        payload?.error ||
+                        payload?.message ||
+                        payload?.debuginfo ||
+                        'Missing launch URL'
+                    );
                 }
 
-                insertHtml(buildIframeHtml(payload.launchurl, payload.title));
+                insertHtml(buildEmbedHtml(payload.embedid, payload.title));
             } catch (error) {
                 window.tiny_zoomclassroom_handleError(error.message || invalidResponseMessage);
             }

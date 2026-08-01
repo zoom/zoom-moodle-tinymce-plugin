@@ -15,17 +15,28 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version details for tiny_zoomclassroom.
+ * Stable placeholder image endpoint for saved Zoom Classroom embeds.
  *
  * @package     tiny_zoomclassroom
  * @copyright   2026
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+define('NO_MOODLE_COOKIES', true);
+define('NO_DEBUG_DISPLAY', true);
 
-$plugin->component = 'tiny_zoomclassroom';
-$plugin->version = 2026080101;
-$plugin->requires = 2025041400;
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.2.2';
+require_once(__DIR__ . '/../../../../../config.php');
+
+$embedid = required_param('id', PARAM_ALPHANUMEXT);
+clean_param($embedid, PARAM_ALPHANUMEXT);
+
+$spacer = $CFG->dirroot . '/pix/spacer.gif';
+if (!is_readable($spacer)) {
+    http_response_code(404);
+    exit;
+}
+
+header('Content-Type: image/gif');
+header('Cache-Control: private, max-age=300');
+header('Content-Length: ' . filesize($spacer));
+readfile($spacer);
