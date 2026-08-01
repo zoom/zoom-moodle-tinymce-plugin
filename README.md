@@ -134,7 +134,6 @@ This avoids creating duplicate visible Moodle external-tool activities for each 
 For detailed design and review material, see:
 
 - `docs/architecture-and-technical-deep-dive.md`
-- `docs/security-review-guide.md`
 - `docs/admin-installation-guide.md`
 - `docs/teacher-student-guide.md`
 
