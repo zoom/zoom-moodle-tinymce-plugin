@@ -109,6 +109,7 @@ if ($ok) {
             }
             $typeid = (int)$launchrecord['toolid'];
             $courseid = (int)$launchrecord['courseid'];
+            tiny_zoomclassroom_require_configured_toolid($typeid);
             $typeconfig = lti_get_type_type_config($typeid);
         }
     } else if (strpos($launchid, 'ltilaunch_') === 0 && $launchstatestring !== '') {
@@ -121,6 +122,7 @@ if ($ok) {
         $messagetype = (string)$messagetype;
         $title = base64_decode($titleb64, true) ?: '';
         $text = base64_decode($textb64, true) ?: '';
+        tiny_zoomclassroom_require_configured_toolid($typeid);
         $typeconfig = lti_get_type_type_config($typeid);
     } else {
         $ok = false;

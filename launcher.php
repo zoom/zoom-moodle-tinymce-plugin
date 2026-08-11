@@ -38,6 +38,9 @@ $context = context_course::instance($courseid);
 if (isguestuser()) {
     throw new required_capability_exception($context, 'moodle/course:view', 'nopermissions', '');
 }
+
+tiny_zoomclassroom_require_configured_toolid($toolid);
+
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('popup');
 $PAGE->set_url(new moodle_url('/lib/editor/tiny/plugins/zoomclassroom/launcher.php', [

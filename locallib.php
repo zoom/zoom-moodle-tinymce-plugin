@@ -144,6 +144,33 @@ function tiny_zoomclassroom_build_canonical_deeplink_url(string $url): string {
 }
 
 /**
+ * Get the single configured Moodle LTI 1.3 tool id for this plugin.
+ *
+ * @return int
+ */
+function tiny_zoomclassroom_get_configured_toolid(): int {
+    $configuredtoolid = get_config('tiny_zoomclassroom', 'toolid');
+    if ($configuredtoolid === false) {
+        return 0;
+    }
+
+    return (int)$configuredtoolid;
+}
+
+/**
+ * Require that a requested tool id matches the configured Zoom Classroom tool.
+ *
+ * @param int $toolid
+ * @return void
+ */
+function tiny_zoomclassroom_require_configured_toolid(int $toolid): void {
+    $configuredtoolid = tiny_zoomclassroom_get_configured_toolid();
+    if ($configuredtoolid <= 0 || $toolid <= 0 || $configuredtoolid !== $toolid) {
+        throw new moodle_exception('invalidtool', 'tiny_zoomclassroom');
+    }
+}
+
+/**
  * Normalize Zoom Classroom tool configuration returned from dynamic registration.
  *
  * @param stdClass $config

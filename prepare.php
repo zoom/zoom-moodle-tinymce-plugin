@@ -42,6 +42,8 @@ if (isguestuser()) {
     throw new required_capability_exception($context, 'moodle/course:view', 'nopermissions', '');
 }
 
+tiny_zoomclassroom_require_configured_toolid($toolid);
+
 $typeconfig = lti_get_type_type_config($toolid);
 if (($typeconfig->lti_ltiversion ?? '') !== LTI_VERSION_1P3) {
     throw new moodle_exception('invalidtool', 'tiny_zoomclassroom');

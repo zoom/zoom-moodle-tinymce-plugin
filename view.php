@@ -34,6 +34,8 @@ if ($embedid !== '') {
     throw new moodle_exception('invalidlaunch', 'tiny_zoomclassroom');
 }
 
+tiny_zoomclassroom_require_configured_toolid((int)$launchconfig['toolid']);
+
 $course = get_course((int)$launchconfig['courseid']);
 require_login($course);
 
