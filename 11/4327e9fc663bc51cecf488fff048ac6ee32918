@@ -1,0 +1,29 @@
+README.md
+  s_cb0c8c3ef32c8a::t_718d18d2cb1c5e 110-111
+docs/teacher-student-guide.md
+  s_cb0c8c3ef32c8a::t_987eb54f3a2157 32,35,64-65
+lang/en/tiny_zoomclassroom.php
+  s_cb0c8c3ef32c8a::t_3e43f6f6ffb7df 107
+launcher.php
+  s_cb0c8c3ef32c8a::t_1692ea7f960aba 89-94,142-181,183-184,189-192,194-196,198-202,204
+locallib.php
+  s_cb0c8c3ef32c8a::t_2ceed0aeaed431 26-30,131-162,232-238
+version.php
+  s_cb0c8c3ef32c8a::t_5a5fa55cb1ca13 28,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "114327e9fc663bc51cecf488fff048ac6ee32918",
+  "prompts": {},
+  "sessions": {
+    "s_cb0c8c3ef32c8a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "82506c2f-9684-4d8c-95ae-b56a599586e2",
+        "model": "grok-4.7"
+      },
+      "human_author": "Corey Mead <corey.mead@zoom.us>"
+    }
+  }
+}
