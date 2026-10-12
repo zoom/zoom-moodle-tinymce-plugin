@@ -104,6 +104,7 @@ $string['launchpage'] = 'Zoom Classroom';
 $string['launchinstructions'] = 'Choose content in Zoom Classroom. When you finish, it will be inserted back into the editor.';
 $string['launchfailed'] = 'Unable to start deep linking for the configured external tool.';
 $string['invalidresponse'] = 'The LTI provider returned an invalid deep-linking response.';
+$string['toomanycontentitems'] = 'Zoom Classroom inserted the first {$a->inserted} of {$a->selected} items (maximum {$a->limit} per insert).';
 $string['invalidlaunch'] = 'The Zoom Classroom launch request was invalid.';
 $string['invalidtoolurl'] = 'The selected Zoom Classroom launch URL must use HTTPS and an approved Zoom host.';
 $string['launchpreparing'] = 'Preparing Zoom Classroom launch...';

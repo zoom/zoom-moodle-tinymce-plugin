@@ -107,8 +107,8 @@ After configuration, verify the full flow:
 4. Click the button.
 5. Confirm the popup opens.
 6. Confirm Zoom Classroom content selection loads.
-7. Select a piece of content.
-8. Confirm the popup closes and the content appears in the editor.
+7. Select one or more items (up to 10 are inserted in one return).
+8. Confirm the popup closes and every selected item appears in the editor.
 9. Save the Moodle item.
 10. Re-open the content in view mode and confirm the embedded item renders correctly.
 

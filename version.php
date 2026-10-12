@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'tiny_zoomclassroom';
-$plugin->version = 2026080101;
+$plugin->version = 2026100700;
 $plugin->requires = 2025041400;
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.2.2';
+$plugin->release = '0.2.3';

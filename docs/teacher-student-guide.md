@@ -29,10 +29,10 @@ You can use the Zoom Classroom button when:
 2. Edit or create a Moodle item that uses TinyMCE.
 3. Click inside the editor.
 4. Click the **Zoom Classroom** button in the toolbar or Insert menu.
-5. In the popup window, choose the content in Zoom Classroom.
+5. In the popup window, choose one or more items in Zoom Classroom (up to 10 are inserted at once).
 6. Finish the selection flow.
 7. Confirm the popup closes.
-8. Confirm the selected content appears in the editor.
+8. Confirm each selected item appears in the editor.
 9. Save the Moodle activity, resource, or page.
 
 ### What happens after saving
@@ -61,8 +61,8 @@ Whether students see the button depends on:
 
 1. Open the editable Moodle submission or discussion field.
 2. Click the **Zoom Classroom** button.
-3. Select content in Zoom Classroom.
-4. Confirm the content appears in the editor.
+3. Select one or more items in Zoom Classroom (up to 10 are inserted at once).
+4. Confirm each selected item appears in the editor.
 5. Save the submission or post.
 
 When the saved content is viewed later, the plugin performs the same authenticated LTI 1.3 render flow used for teacher-authored embeds.

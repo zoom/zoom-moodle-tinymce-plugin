@@ -86,6 +86,12 @@ echo $OUTPUT->header();
         const sesskey = <?php echo json_encode(sesskey()); ?>;
         const fallbackText = <?php echo json_encode(get_string('insertfallbacktext', 'tiny_zoomclassroom')); ?>;
         const invalidResponseMessage = <?php echo json_encode(get_string('invalidresponse', 'tiny_zoomclassroom')); ?>;
+        const maxContentItems = <?php echo json_encode(TINY_ZOOMCLASSROOM_MAX_CONTENT_ITEMS); ?>;
+        const tooManyItemsTemplate = <?php echo json_encode(get_string('toomanycontentitems', 'tiny_zoomclassroom', (object) [
+            'inserted' => '{inserted}',
+            'selected' => '{selected}',
+            'limit' => '{limit}',
+        ])); ?>;
 
         const escapeHtml = (value) => String(value)
             .replace(/&/g, '&amp;')
@@ -133,42 +139,69 @@ echo $OUTPUT->header();
                 `</div>`;
         };
 
+        const collectConfigs = (returnData) => {
+            if (!returnData || typeof returnData !== 'object') {
+                return [];
+            }
+            if (Array.isArray(returnData.multiple)) {
+                return returnData.multiple.filter((item) => item && typeof item === 'object');
+            }
+            return [returnData];
+        };
+
+        const prepareEmbed = async (config) => {
+            const response = await fetch(M.cfg.wwwroot + '/lib/editor/tiny/plugins/zoomclassroom/prepare.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    sesskey,
+                    course: courseId,
+                    toolid: toolId,
+                    config,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const payload = await response.json();
+            if (!payload || !payload.launchurl || !payload.embedid) {
+                throw new Error(
+                    payload?.error ||
+                    payload?.message ||
+                    'Missing launch URL'
+                );
+            }
+
+            return buildEmbedHtml(payload.embedid, payload.title);
+        };
+
         window.processContentItemReturnData = async function(returnData) {
-            const config = returnData && Array.isArray(returnData.multiple) ? returnData.multiple[0] : returnData;
-            if (!config || typeof config !== 'object') {
+            const configs = collectConfigs(returnData);
+            if (!configs.length) {
                 window.tiny_zoomclassroom_handleError(invalidResponseMessage);
                 return;
             }
 
+            const truncated = configs.length > maxContentItems;
+            const selectedCount = configs.length;
+            const toInsert = configs.slice(0, maxContentItems);
+
             try {
-                const response = await fetch(M.cfg.wwwroot + '/lib/editor/tiny/plugins/zoomclassroom/prepare.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        sesskey,
-                        course: courseId,
-                        toolid: toolId,
-                        config,
-                    }),
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+                const fragments = [];
+                for (const config of toInsert) {
+                    fragments.push(await prepareEmbed(config));
                 }
-
-                const payload = await response.json();
-                if (!payload || !payload.launchurl || !payload.embedid) {
-                    throw new Error(
-                        payload?.error ||
-                        payload?.message ||
-                        payload?.debuginfo ||
-                        'Missing launch URL'
-                    );
+                if (truncated) {
+                    window.alert(tooManyItemsTemplate
+                        .replace('{inserted}', String(toInsert.length))
+                        .replace('{selected}', String(selectedCount))
+                        .replace('{limit}', String(maxContentItems)));
                 }
-
-                insertHtml(buildEmbedHtml(payload.embedid, payload.title));
+                insertHtml(fragments.join(''));
             } catch (error) {
                 window.tiny_zoomclassroom_handleError(error.message || invalidResponseMessage);
             }

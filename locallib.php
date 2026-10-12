@@ -24,6 +24,11 @@ require_once($CFG->dirroot . '/mod/lti/locallib.php');
 const TINY_ZOOMCLASSROOM_LAUNCH_STATE_TTL = 600;
 
 /**
+ * Maximum deep-link items inserted into TinyMCE in one picker return.
+ */
+const TINY_ZOOMCLASSROOM_MAX_CONTENT_ITEMS = 10;
+
+/**
  * Prefix for publicly stored embed identifiers.
  */
 const TINY_ZOOMCLASSROOM_EMBED_PUBLICID_PREFIX = 'tzc_';
@@ -124,6 +129,38 @@ function tiny_zoomclassroom_validate_zoom_url(string $url): string {
 }
 
 /**
+ * Rewrite a deep-link URL that points at the assignment-flow path.
+ *
+ * The host is left unchanged. This runs even when the host is not on the
+ * allow list, because registration would otherwise keep the assignment-flow
+ * path and the picker would launch it.
+ *
+ * @param string $url
+ * @return string
+ */
+function tiny_zoomclassroom_rewrite_assignmentflow_url(string $url): string {
+    $parts = parse_url(trim($url));
+    if (!is_array($parts)) {
+        return $url;
+    }
+
+    $path = rtrim((string)($parts['path'] ?? ''), '/');
+    if ($path !== '/classroom/lti/advantage/assignmentflow') {
+        return $url;
+    }
+
+    $scheme = strtolower((string)($parts['scheme'] ?? ''));
+    $host = strtolower(trim((string)($parts['host'] ?? '')));
+    if ($scheme !== 'https' || $host === '') {
+        return $url;
+    }
+
+    $port = isset($parts['port']) ? ':' . (int)$parts['port'] : '';
+
+    return 'https://' . $host . $port . '/classroom/lti/advantage';
+}
+
+/**
  * Build the canonical Zoom Classroom deep-linking URI for a validated launch URL.
  *
  * @param string $url
@@ -190,6 +227,13 @@ function tiny_zoomclassroom_normalize_registered_tool_config(stdClass $config): 
 
     if ($candidateurl === '') {
         return $config;
+    }
+
+    $assignmentflowurl = tiny_zoomclassroom_rewrite_assignmentflow_url($candidateurl);
+    if ($assignmentflowurl !== $candidateurl) {
+        $config->lti_toolurl_ContentItemSelectionRequest = $assignmentflowurl;
+        $config->toolurl_ContentItemSelectionRequest = $assignmentflowurl;
+        $candidateurl = $assignmentflowurl;
     }
 
     try {
