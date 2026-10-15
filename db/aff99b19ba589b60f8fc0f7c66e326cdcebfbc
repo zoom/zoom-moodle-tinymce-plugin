@@ -1,0 +1,22 @@
+register.php
+  s_b2e1b4e828152b::t_a1471204e61cee 209-212,214-219,221
+  s_b2e1b4e828152b::t_6db79656b97ef5 580-583
+  s_b2e1b4e828152b::t_e5baeb32f8bbee 42-52
+  s_b2e1b4e828152b::t_21b7a1f4a1f3ca 477-493
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "dbaff99b19ba589b60f8fc0f7c66e326cdcebfbc",
+  "prompts": {},
+  "sessions": {
+    "s_b2e1b4e828152b": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "18d1b827-ebb8-4be7-894f-468e7fe4018b",
+        "model": "grok-4.7"
+      },
+      "human_author": "Corey Mead <corey.mead@zoom.us>"
+    }
+  }
+}
