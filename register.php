@@ -39,7 +39,17 @@ function tiny_zoomclassroom_get_registered_tools(): array {
         return $tools;
     }
 
-    $records = $DB->get_records('lti_types', [], 'id DESC', 'id, name');
+    // Site tools only. Course-scoped rows are owned by an editing teacher and must not become the global tool.
+    $records = $DB->get_records_select(
+        'lti_types',
+        'course = :course AND state = :state',
+        [
+            'course' => SITEID,
+            'state' => LTI_TOOL_STATE_CONFIGURED,
+        ],
+        'id DESC',
+        'id, name'
+    );
     foreach ($records as $record) {
         $config = lti_get_type_type_config((int)$record->id);
         if (($config->lti_ltiversion ?? '') !== LTI_VERSION_1P3) {
@@ -142,14 +152,7 @@ $registeredtools = tiny_zoomclassroom_get_registered_tools();
 $storedtoolid = get_config('tiny_zoomclassroom', 'toolid');
 $activetoolid = $storedtoolid === false ? 0 : (int)$storedtoolid;
 $pendingregisteredtoolid = (int)get_config('tiny_zoomclassroom', 'pendingregisteredtoolid');
-$latestknownid = optional_param('latestknownid', 0, PARAM_INT);
 $registrationurl = optional_param('registrationurl', '', PARAM_URL);
-$registrationcompleted = optional_param('registrationcompleted', 0, PARAM_BOOL);
-
-if ($storedtoolid === false && count($registeredtools) === 1) {
-    $activetoolid = (int)$registeredtools[0]['id'];
-    set_config('toolid', $activetoolid, 'tiny_zoomclassroom');
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_sesskey();
@@ -203,23 +206,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $registeredtools = tiny_zoomclassroom_get_registered_tools();
             \core\notification::success(get_string('configuredtooldeleted', 'tiny_zoomclassroom'));
         }
-    }
-}
-
-if ($registrationcompleted && $pendingregisteredtoolid > 0) {
-    $pendingtool = tiny_zoomclassroom_find_tool($registeredtools, $pendingregisteredtoolid);
-    if ($pendingtool) {
-        $activetoolid = $pendingregisteredtoolid;
-        set_config('toolid', $activetoolid, 'tiny_zoomclassroom');
-    }
-    unset_config('pendingregisteredtoolid', 'tiny_zoomclassroom');
-} else if ($latestknownid > 0) {
-    foreach ($registeredtools as $tool) {
-        if ((int)$tool['id'] > $latestknownid) {
-            $activetoolid = (int)$tool['id'];
+    } else if ($action === 'completeregistration') {
+        $pendingtool = tiny_zoomclassroom_find_tool($registeredtools, $pendingregisteredtoolid);
+        if ($pendingtool) {
+            $activetoolid = $pendingregisteredtoolid;
             set_config('toolid', $activetoolid, 'tiny_zoomclassroom');
-            break;
+            \core\notification::success(get_string('registrationdetected', 'tiny_zoomclassroom', $pendingtool['name']));
+        } else if ($activetoolid > 0) {
+            $currentpending = tiny_zoomclassroom_find_tool($registeredtools, $activetoolid);
+            if ($currentpending) {
+                \core\notification::success(get_string('registrationcompletedcurrent', 'tiny_zoomclassroom', $currentpending['name']));
+            }
         }
+        unset_config('pendingregisteredtoolid', 'tiny_zoomclassroom');
     }
 }
 
@@ -255,7 +254,6 @@ if ($alloweddomains === '') {
 }
 
 $previewjson = json_encode([
-    'latestKnownId' => $registeredtools[0]['id'] ?? 0,
     'currentToolId' => $activetoolid,
     'registrationStartUrl' => (new moodle_url('/lib/editor/tiny/plugins/zoomclassroom/startregistration.php', ['sesskey' => sesskey()]))->out(false),
     'returnUrl' => $pageurl->out(false),
@@ -476,6 +474,23 @@ echo html_writer::end_tag('form');
 echo $OUTPUT->box_end();
 
 echo html_writer::start_div('', ['id' => 'tiny_zoomclassroom_registration_root', 'data-config' => $previewjson]);
+echo html_writer::start_tag('form', [
+    'method' => 'post',
+    'action' => $pageurl->out(false),
+    'id' => 'tiny_zoomclassroom_complete_registration',
+    'class' => 'd-none',
+]);
+echo html_writer::empty_tag('input', [
+    'type' => 'hidden',
+    'name' => 'sesskey',
+    'value' => sesskey(),
+]);
+echo html_writer::empty_tag('input', [
+    'type' => 'hidden',
+    'name' => 'action',
+    'value' => 'completeregistration',
+]);
+echo html_writer::end_tag('form');
 echo html_writer::end_div();
 ?>
 <style>
@@ -562,10 +577,10 @@ echo html_writer::end_div();
     const closeAndRefresh = () => {
         iframe.removeAttribute('src');
         backdrop.classList.remove('is-open');
-        const nextUrl = new URL(config.returnUrl, window.location.origin);
-        nextUrl.searchParams.set('latestknownid', String(config.latestKnownId || 0));
-        nextUrl.searchParams.set('registrationcompleted', '1');
-        window.location.assign(nextUrl.toString());
+        const form = document.getElementById('tiny_zoomclassroom_complete_registration');
+        if (form) {
+            form.submit();
+        }
     };
 
     const openModal = () => {
