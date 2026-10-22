@@ -1,0 +1,24 @@
+amd/src/render.js
+  s_34d8bd23a06f3f::t_c6bcab566e7764 159
+  s_34d8bd23a06f3f::t_be74d6991275a7 158
+launcher.php
+  s_34d8bd23a06f3f::t_d02c95cd1a9119 136
+amd/build/render.min.js
+  s_34d8bd23a06f3f::t_84bd6e1b9c38fb 145-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "1f845fe0e381df551ffdf744eb454b27701893ee",
+  "prompts": {},
+  "sessions": {
+    "s_34d8bd23a06f3f": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "d7b09c29-c041-4f07-95af-6c36a834a43e",
+        "model": "grok-4.7"
+      },
+      "human_author": "Corey Mead <corey.mead@zoom.us>"
+    }
+  }
+}
