@@ -20,14 +20,18 @@ This guide is for Moodle administrators doing first-time installation, configura
 You will need:
 
 - Moodle with the TinyMCE editor enabled
+- PHP **8.2.35 / 8.3.36 / 8.4.27** (minimum patched versions on those branches)
 - administrator access to install plugins
 - a Zoom Classroom **dynamic registration URL**
 - a Zoom Classroom tool that supports **LTI 1.3 Deep Linking**
 - a Moodle site URL that Zoom Classroom can reach during registration and launch
 
+Unpatched PHP is exposed to CVE-2026-109618 and CVE-2026-109619; see the [PHP advisory](https://www.php.net/archive/2026.php#2026-10-21-5).
+
 ## Supported scope
 
 - Supports **Moodle 5+**
+- Requires patched PHP **8.2.35 / 8.3.36 / 8.4.27** (or later on those branches)
 - Supports **LTI 1.3 only**
 - Does **not** support LTI 1.1
 - Designed to use one admin-selected Zoom Classroom tool registration per Moodle site

@@ -31,7 +31,10 @@ You will need:
 This plugin supports:
 
 - **Moodle 5+**
+- **PHP** 8.2.35 / 8.3.36 / 8.4.27 (minimum patched versions on those branches)
 - **LTI 1.3 deep linking only**
+
+Unpatched PHP is exposed to CVE-2026-109618 and CVE-2026-109619; see the [PHP advisory](https://www.php.net/archive/2026.php#2026-10-21-5).
 
 This plugin does **not** support:
 
