@@ -1,0 +1,19 @@
+version.php
+  s_79e8a47083d71d::t_c21cf12c7e26d1 28,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "624dd9b58d4720d51e4788d37d9fee94d82dda99",
+  "prompts": {},
+  "sessions": {
+    "s_79e8a47083d71d": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "17f1114a-faa6-4fce-ae29-c2d64c671dbe",
+        "model": "grok-4.6"
+      },
+      "human_author": "Corey Mead <corey.mead@zoom.us>"
+    }
+  }
+}
