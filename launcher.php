@@ -133,7 +133,7 @@ echo $OUTPUT->header();
             const placeholderUrl = `${M.cfg.wwwroot}/lib/editor/tiny/plugins/zoomclassroom/placeholder.php?id=${encodeURIComponent(embedId)}`;
             const escapedPlaceholderUrl = escapeHtml(placeholderUrl);
             const escapedEmbedId = escapeHtml(embedId);
-            return `<div class="tiny_zoomclassroom-embed" data-title="${escapedLabel}" data-embed-id="${escapedEmbedId}">` +
+            return `<div class="tiny_zoomclassroom-embed mceNonEditable" contenteditable="false" data-title="${escapedLabel}" data-embed-id="${escapedEmbedId}">` +
                 `<div class="tiny_zoomclassroom-preview">${escapedLabel}</div>` +
                 `<img src="${escapedPlaceholderUrl}" alt="" role="presentation" aria-hidden="true" class="tiny_zoomclassroom-sentinel" width="1" height="1" style="display:none" />` +
                 `</div>`;
