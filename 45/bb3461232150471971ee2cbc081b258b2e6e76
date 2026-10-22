@@ -1,0 +1,22 @@
+README.md
+  s_79e8a47083d71d::t_9e01af17353b3e 34,37
+  s_79e8a47083d71d::t_f33e97e4c028ec 38
+docs/admin-installation-guide.md
+  s_79e8a47083d71d::t_522322c5d71665 23,29-30,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "45bb3461232150471971ee2cbc081b258b2e6e76",
+  "prompts": {},
+  "sessions": {
+    "s_79e8a47083d71d": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "17f1114a-faa6-4fce-ae29-c2d64c671dbe",
+        "model": "grok-4.6"
+      },
+      "human_author": "Corey Mead <corey.mead@zoom.us>"
+    }
+  }
+}
